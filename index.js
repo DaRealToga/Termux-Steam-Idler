@@ -35,14 +35,24 @@ function log(msg) {
 function loadConfig() {
   try {
     if (fs.existsSync(CONFIG_PATH)) {
-      return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+      const data = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+      // Restore Infinity from "unlimited" or null
+      return data.map(g => ({
+        ...g,
+        targetHours: (g.targetHours === 'unlimited' || g.targetHours === null) ? Infinity : g.targetHours,
+      }));
     }
   } catch (e) { /* ignore corrupt config */ }
   return null;
 }
 
 function saveConfig(games) {
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(games, null, 2), 'utf8');
+  // Infinity can't be serialized to JSON, store as "unlimited"
+  const serializable = games.map(g => ({
+    ...g,
+    targetHours: g.targetHours === Infinity ? 'unlimited' : g.targetHours,
+  }));
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify(serializable, null, 2), 'utf8');
 }
 
 function loadLoginKey() {
@@ -804,7 +814,7 @@ function setupInputHandler(credentials) {
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const VERSION = '1.6.0';
+  const VERSION = '1.7.0';
   console.clear();
   console.log('');
   console.log(chalk.bold.hex('#1b9feb')('╔══════════════════════════════════════════════════╗'));
@@ -876,19 +886,23 @@ async function main() {
   // Step 5: Check card drops
   cardDrops = await fetchBadges();
 
-  // Step 4: Check for saved config
+  // Step 6: Check for saved config
   const savedConfig = loadConfig();
   let games = [];
 
   if (savedConfig && savedConfig.length > 0) {
     console.log('');
     log(chalk.yellow('Found saved game selection:'));
+    const ownedMap = new Map(ownedApps.map(a => [a.appid, a]));
     for (const g of savedConfig) {
+      // Cross-reference with library for fresh names
+      const libGame = ownedMap.get(g.appid);
+      const displayName = libGame ? libGame.name : (g.name || `Unknown (${g.appid})`);
       const modeTag = g.mode === 'cards' ? chalk.magenta('[CARDS]') : chalk.blue('[HOURS]');
       const hoursTag = g.mode === 'hours' && g.targetHours !== Infinity
         ? chalk.gray(` → ${g.targetHours}h`)
         : g.mode === 'hours' ? chalk.gray(' → unlimited') : '';
-      console.log(`   ${modeTag} ${chalk.white(g.name)}${hoursTag}`);
+      console.log(`   ${modeTag} ${chalk.white(displayName)}${hoursTag}`);
     }
 
     const { useSaved } = await inquirer.prompt([
@@ -901,9 +915,14 @@ async function main() {
     ]);
 
     if (useSaved) {
-      // Validate saved games still exist in library
       const ownedIds = new Set(ownedApps.map(a => a.appid));
-      games = savedConfig.filter(g => ownedIds.has(g.appid));
+      games = savedConfig
+        .filter(g => ownedIds.has(g.appid))
+        .map(g => {
+          // Refresh game names from library
+          const libGame = ownedMap.get(g.appid);
+          return { ...g, name: libGame ? libGame.name : g.name };
+        });
       if (games.length < savedConfig.length) {
         log(chalk.yellow(`${savedConfig.length - games.length} saved game(s) no longer in library, skipped.`));
       }
@@ -911,7 +930,42 @@ async function main() {
   }
 
   if (games.length === 0) {
-    games = await selectGames();
+    // Offer quick-idle-all-cards option
+    const gamesWithDrops = Object.keys(cardDrops).length;
+
+    if (gamesWithDrops > 0) {
+      console.log('');
+      const { quickMode } = await inquirer.prompt([
+        {
+          type: 'list',
+          name: 'quickMode',
+          message: chalk.cyan(`Found ${gamesWithDrops} games with card drops. What do you want to do?`),
+          choices: [
+            { name: `🃏  Idle all ${gamesWithDrops} games with card drops (auto)`, value: 'all_cards' },
+            { name: '🎮  Pick games manually', value: 'manual' },
+          ],
+        },
+      ]);
+
+      if (quickMode === 'all_cards') {
+        games = Object.entries(cardDrops).map(([appid, drops]) => {
+          const id = parseInt(appid);
+          const libGame = ownedApps.find(a => a.appid === id);
+          return {
+            appid: id,
+            name: libGame ? libGame.name : `App ${appid}`,
+            mode: 'cards',
+            targetHours: Infinity,
+            hoursIdled: 0,
+          };
+        });
+        log(chalk.green(`✓ Auto-selected ${games.length} games for card farming`));
+      }
+    }
+
+    if (games.length === 0) {
+      games = await selectGames();
+    }
   }
 
   if (games.length === 0) {

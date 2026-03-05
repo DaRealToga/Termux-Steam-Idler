@@ -4,7 +4,7 @@ A simple Node.js tool that idles your Steam games in the background to farm trad
 
 ![Node.js](https://img.shields.io/badge/Node.js-18+-green?logo=node.js)
 ![Platform](https://img.shields.io/badge/Platform-Termux%20%7C%20Linux-blue)
-![Version](https://img.shields.io/badge/Version-1.6.0-orange)
+![Version](https://img.shields.io/badge/Version-1.7.0-orange)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ## What it does
@@ -12,6 +12,7 @@ A simple Node.js tool that idles your Steam games in the background to farm trad
 - Lets you **pick games from your actual library** — no need to manually look up App IDs
 - **Search/filter** your library by name if you have hundreds of games
 - For each game, you choose: **farm cards** or **idle hours** (with a target or unlimited)
+- **One-click card farming** — auto-detects and idles every game with remaining drops
 - Shows how many **card drops you have left** per game before you pick
 - **Auto-stops card farming** when all drops are collected (re-checks every 30 min)
 - **Filters out DLCs and Family Sharing games** automatically so you only see what's yours
