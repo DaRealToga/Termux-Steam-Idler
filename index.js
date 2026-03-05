@@ -129,8 +129,17 @@ function doLogin(credentials) {
   return new Promise((resolve, reject) => {
     // One-time listeners for this login attempt
     const onLoggedOn = () => {
-      cleanup();
-      resolve();
+      // If PICS cache is enabled, we should wait until it's ready
+      if (client.options.enablePicsCache && !client.picsCache.apps) {
+        log(chalk.yellow('Waiting for Steam PICS cache (handles Family Sharing filtering)...'));
+        client.once('appOwnershipCached', () => {
+          cleanup();
+          resolve();
+        });
+      } else {
+        cleanup();
+        resolve();
+      }
     };
     const onError = (err) => {
       cleanup();
@@ -825,7 +834,7 @@ function setupInputHandler(credentials) {
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const VERSION = '1.7.1';
+  const VERSION = '1.7.2';
   console.clear();
   console.log('');
   console.log(chalk.bold.hex('#1b9feb')('╔══════════════════════════════════════════════════╗'));
