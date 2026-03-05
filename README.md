@@ -137,13 +137,48 @@ nano .env
 ```
 Type your credentials and save.
 
+## FAQ
+
+**Does this steal my credentials?**
+
+No. Everything runs locally on your device. Your username and password are sent directly to Steam's servers through the `steam-user` library — the same protocol the official Steam client uses. Nothing is sent anywhere else. The code is fully open source and straightforward to audit.
+
+**Can I get banned for this?**
+
+Steam's ToS don't explicitly endorse idling tools, but in practice, Valve has never banned accounts for it. Tools like ArchiSteamFarm have been around for years with millions of users and zero bans. The hours you accumulate are real — you're "running" the game, just not actively playing. That said, use at your own discretion.
+
+**Does this actually play my games?**
+
+No. It tells Steam you're running the game, but nothing is downloaded or launched. It just sends the right signals so Steam registers playtime. This is why it barely uses any resources.
+
+**Why only 32 games at once?**
+
+That's a hard cap in Steam's protocol — there's no way around it. If you select more than 32, the extras queue up and automatically rotate in when a slot opens.
+
+**How long until I get card drops?**
+
+Steam requires at least 2 hours of playtime before drops start. After that, they come at random intervals. Fewer games idling at once = faster drops per game.
+
+**Does it work on PC or a Linux server?**
+
+Yes. It runs anywhere Node.js is available. Just skip the Termux-specific stuff (wake lock, notifications, etc).
+
+**My library is showing fewer games than I own**
+
+DLCs and Family Sharing (borrowed) games are filtered out by default. Only games tied to your own licenses show up.
+
+**It's asking for Steam Guard again even though I already entered it**
+
+Login keys expire if you change your password, revoke authorizations, or if Steam invalidates the session. Enter the code once more and it'll save a fresh key.
+
 ## Good to know
 
-- Steam caps simultaneous idling at **32 games** — if you pick more, extras queue up and rotate in automatically
-- Fewer games idling at once = faster card drops (Steam's rate limiting)
-- You'll appear offline to friends thanks to Invisible mode
-- The auto-reconnect only stops if you press `q` — otherwise it keeps trying forever
-- Steam Guard is only needed once per device, the login key handles reconnects
+- Steam caps simultaneous idling at **32 games** — extras queue and rotate in
+- Fewer games at once = faster card drops per game
+- You appear offline to friends (Invisible mode)
+- Card farming auto-stops when all drops are collected (re-checked every 30 min)
+- Auto-reconnect never gives up unless you press `q`
+- Steam Guard is only needed once — a login key is saved after that
 
 ## License
 
