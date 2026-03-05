@@ -86,7 +86,7 @@ It updates every 5 minutes with per-game hours and mode info. If you skip this s
 ## Project files
 
 ```
-steam-idler/
+Termux-Steam-Idler/
 ├── index.js          # The whole app
 ├── package.json      # Dependencies
 ├── .env.example      # Credential template
@@ -118,8 +118,8 @@ npm install --no-bin-links
 ```
 Or move the project to Termux's home directory:
 ```bash
-cp -r /storage/emulated/0/Download/steam-idler ~/steam-idler
-cd ~/steam-idler
+cp -r /storage/emulated/0/Download/Termux-Steam-Idler ~/Termux-Steam-Idler
+cd ~/Termux-Steam-Idler
 npm install
 ```
 

@@ -1,5 +1,5 @@
 {
-  "name": "steam-idler",
+  "name": "termux-steam-idler",
   "version": "1.0.0",
   "description": "Steam card & hour farmer for Termux",
   "main": "index.js",
