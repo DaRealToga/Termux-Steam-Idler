@@ -11,7 +11,7 @@ const https = require('https');
 // ─── Config ──────────────────────────────────────────────────────────────────
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 const LOGINKEY_PATH = path.join(__dirname, 'sentry.key');
-const MAX_GAMES = 32; // Steam protocol limit
+const MAX_GAMES = 32;
 
 // ─── State ───────────────────────────────────────────────────────────────────
 let client = new SteamUser({ enablePicsCache: true });
@@ -58,18 +58,24 @@ function saveConfig(games) {
 function loadLoginKey() {
   try {
     if (fs.existsSync(LOGINKEY_PATH)) {
-      return JSON.parse(fs.readFileSync(LOGINKEY_PATH, 'utf8'));
+      const data = JSON.parse(fs.readFileSync(LOGINKEY_PATH, 'utf8'));
+      // Support both old loginKey and new refreshToken format
+      return {
+        username: data.username,
+        refreshToken: data.refreshToken || data.loginKey || null,
+      };
     }
   } catch (e) { /* ignore */ }
   return null;
 }
 
-function saveLoginKey(username, loginKey) {
+function saveLoginKey(username, refreshToken) {
   try {
-    fs.writeFileSync(LOGINKEY_PATH, JSON.stringify({ username, loginKey }, null, 2), 'utf8');
-    log(chalk.green('✓ Login key saved to: ') + chalk.gray(LOGINKEY_PATH));
+    fs.writeFileSync(LOGINKEY_PATH, JSON.stringify({ username, refreshToken }, null, 2), 'utf8');
+    log(chalk.green('✓ Login token saved to: ') + chalk.gray(LOGINKEY_PATH));
+    log(chalk.gray('  (Steam Guard won\'t be needed next time)'));
   } catch (err) {
-    log(chalk.red('✗ Failed to save login key: ' + err.message));
+    log(chalk.red('✗ Failed to save login token: ' + err.message));
     log(chalk.yellow('  You may need to run from Termux home (~/) instead of shared storage'));
   }
 }
@@ -144,9 +150,9 @@ function doLogin(credentials) {
       rememberPassword: true,
     };
 
-    // Try login key first (skips Steam Guard), fall back to password
-    if (credentials.loginKey) {
-      loginOpts.loginKey = credentials.loginKey;
+    // Use refresh token if available, otherwise password
+    if (credentials.refreshToken) {
+      loginOpts.refreshToken = credentials.refreshToken;
     } else {
       loginOpts.password = credentials.password;
     }
@@ -156,10 +162,9 @@ function doLogin(credentials) {
 }
 
 function setupLoginKeyListener(credentials) {
-  client.on('loginKey', (key) => {
-    saveLoginKey(credentials.username, key);
-    credentials.loginKey = key;
-    log(chalk.green('✓ Login key saved — Steam Guard won\'t be needed next time'));
+  client.on('refreshToken', (token) => {
+    saveLoginKey(credentials.username, token);
+    credentials.refreshToken = token;
   });
 }
 
@@ -820,7 +825,7 @@ function setupInputHandler(credentials) {
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const VERSION = '1.7.0';
+  const VERSION = '1.7.1';
   console.clear();
   console.log('');
   console.log(chalk.bold.hex('#1b9feb')('╔══════════════════════════════════════════════════╗'));
@@ -835,19 +840,19 @@ async function main() {
   const creds = {
     username: process.env.STEAM_USERNAME,
     password: process.env.STEAM_PASSWORD,
-    loginKey: null,
+    refreshToken: null,
   };
 
-  // Try to load saved login key (skips Steam Guard)
+  // Try to load saved refresh token (skips Steam Guard)
   const savedLogin = loadLoginKey();
-  if (savedLogin && savedLogin.loginKey) {
+  if (savedLogin && savedLogin.refreshToken) {
     creds.username = savedLogin.username;
-    creds.loginKey = savedLogin.loginKey;
-    log(chalk.green('✓ Found saved login key — skipping Steam Guard'));
+    creds.refreshToken = savedLogin.refreshToken;
+    log(chalk.green('✓ Found saved login token — skipping Steam Guard'));
   }
 
-  // If credentials not in .env and no login key, prompt for them
-  if (!creds.username || (!creds.password && !creds.loginKey)) {
+  // If credentials not in .env and no refresh token, prompt for them
+  if (!creds.username || (!creds.password && !creds.refreshToken)) {
     const prompted = await promptCredentials();
     creds.username = prompted.username;
     creds.password = prompted.password;
@@ -870,11 +875,11 @@ async function main() {
     client.setPersona(SteamUser.EPersonaState.Invisible);
     log(chalk.green('✓ Logged in as ') + chalk.bold.white(client.steamID.getSteamID64()) + chalk.gray(' (Invisible)'));
   } catch (err) {
-    // If login key failed, clear it and retry with password
-    if (creds.loginKey) {
-      log(chalk.yellow('⚠ Login key expired or invalid, clearing it...'));
+    // If refresh token failed, clear it and retry with password
+    if (creds.refreshToken) {
+      log(chalk.yellow('⚠ Login token expired or invalid, clearing it...'));
       try { fs.unlinkSync(LOGINKEY_PATH); } catch (e) { /* ignore */ }
-      creds.loginKey = null;
+      creds.refreshToken = null;
 
       // Need fresh credentials if we don't have a password
       if (!creds.password) {
