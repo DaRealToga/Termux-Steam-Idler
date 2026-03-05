@@ -111,32 +111,7 @@ Termux-Steam-Idler/
 8. If the connection drops, it retries with exponential backoff (5s, 10s, 20s... up to 60s)
 9. Everything gets saved to `config.json` so you can resume next time
 
-## Troubleshooting
-
-**`EACCES: permission denied, symlink` when running `npm install`**
-
-Android's shared storage doesn't support symlinks. Either:
-```bash
-npm install --no-bin-links
-```
-Or move the project to Termux's home directory:
-```bash
-cp -r /storage/emulated/0/Download/Termux-Steam-Idler ~/Termux-Steam-Idler
-cd ~/Termux-Steam-Idler
-npm install
-```
-
-**`Cannot find module 'dotenv'`**
-
-You forgot to install dependencies. Run `npm install` in the project folder first.
-
-**Can't find `.env.example`**
-
-Dotfiles are hidden by default. Just create `.env` directly:
-```bash
-nano .env
-```
-Type your credentials and save.
+Having issues? Check the [Troubleshooting Guide](TROUBLESHOOTING.md).
 
 ## FAQ
 
