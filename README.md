@@ -4,7 +4,7 @@ A simple Node.js tool that idles your Steam games in the background to farm trad
 
 ![Node.js](https://img.shields.io/badge/Node.js-18+-green?logo=node.js)
 ![Platform](https://img.shields.io/badge/Platform-Termux%20%7C%20Linux-blue)
-![Version](https://img.shields.io/badge/Version-1.7.2-orange)
+![Version](https://img.shields.io/badge/Version-1.7.3-orange)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ## What it does

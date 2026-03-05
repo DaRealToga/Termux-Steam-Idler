@@ -155,14 +155,14 @@ function doLogin(credentials) {
 
     // Build login options
     const loginOpts = {
-      accountName: credentials.username,
       rememberPassword: true,
     };
 
-    // Use refresh token if available, otherwise password
+    // Use refresh token if available, otherwise password/username
     if (credentials.refreshToken) {
       loginOpts.refreshToken = credentials.refreshToken;
     } else {
+      loginOpts.accountName = credentials.username;
       loginOpts.password = credentials.password;
     }
 
@@ -834,7 +834,7 @@ function setupInputHandler(credentials) {
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const VERSION = '1.7.2';
+  const VERSION = '1.7.3';
   console.clear();
   console.log('');
   console.log(chalk.bold.hex('#1b9feb')('╔══════════════════════════════════════════════════╗'));
