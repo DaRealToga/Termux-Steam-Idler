@@ -1,181 +1,148 @@
-# 🎮 Steam Card & Hour Farmer
+# Steam Card & Hour Farmer
 
-A lightweight Node.js CLI tool that idles your Steam games to farm trading cards and accumulate playtime. Designed to run 24/7 on **Termux** (Android).
+A simple Node.js tool that idles your Steam games in the background to farm trading cards and rack up playtime. Built to run 24/7 on **Termux** (Android), but works on any Linux/macOS system too.
 
 ![Node.js](https://img.shields.io/badge/Node.js-18+-green?logo=node.js)
 ![Platform](https://img.shields.io/badge/Platform-Termux%20%7C%20Linux-blue)
 ![Version](https://img.shields.io/badge/Version-1.5.0-orange)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
-## ✨ Features
+## What it does
 
-- **🎮 Interactive game selector** — browse your full library and pick games, no hardcoded IDs
-- **⏱️ Per-game mode** — choose between card farming or hour idling for each game
-- **🔢 Hour targets** — set specific hours to idle or run unlimited
-- **📋 Unlimited selection with queue** — select as many games as you want; idles 32 at a time, extras auto-rotate in
-- **🃏 Card drop checker** — shows remaining card drops for each game from your Steam badges
-- **🚫 DLC filter** — automatically excludes DLCs from the game list
-- **👨‍👩‍👦 Family Sharing filter** — only shows games you own, not borrowed ones
-- **👻 Invisible mode** — logs in as Invisible so friends don't see you
-- **🔁 Auto-reconnect** — reconnects automatically with exponential backoff if disconnected
-- **🔑 Login key persistence** — saves auth so Steam Guard is only needed once
-- **💾 Persistent config** — saves your game selection across restarts
-- **🔔 Android notification** — shows idling status in your notification bar (requires Termux:API)
-- **⌨️ Live controls** — re-select games, check status, or quit without restarting
+- Lets you **pick games from your actual library** — no need to manually look up App IDs
+- For each game, you choose: **farm cards** or **idle hours** (with a target or unlimited)
+- Shows how many **card drops you have left** per game before you pick
+- **Filters out DLCs and Family Sharing games** automatically so you only see what's yours
+- Logs in as **Invisible** — your friends won't see you online
+- **Remembers your login** after the first Steam Guard code, so you don't have to re-enter it
+- **Saves your game picks** between sessions — just hit "resume" on restart
+- **Auto-reconnects** if your internet drops. You don't need to babysit it
+- You can pick **more than 32 games** — it queues extras and rotates them in as slots open up
+- Optionally shows a **persistent notification** on Android with your idling stats
 
-## 📋 Requirements
-
-- [Termux](https://f-droid.org/en/packages/com.termux/) (recommended from F-Droid)
-- [Node.js](https://nodejs.org/) 18+
-- A Steam account
-
-## 🚀 Quick Start
-
-### Termux Setup
+## Setup (Termux)
 
 ```bash
-# 1. Update packages & install Node.js
+# Install Node.js
 pkg update && pkg upgrade -y
-pkg install nodejs -y
+pkg install nodejs git -y
 
-# 2. Clone the repo
-pkg install git -y
-git clone https://github.com/YOUR_USERNAME/steam-idler.git
-cd steam-idler
-
-# 3. Install dependencies
+# Clone and install
+git clone https://github.com/DaRealToga/Termux-Steam-Idler.git
+cd Termux-Steam-Idler
 npm install
 
-# 4. Set up your credentials
+# Set up credentials
 cp .env.example .env
 nano .env
-# Fill in your STEAM_USERNAME and STEAM_PASSWORD
-# Save: Ctrl+O → Enter | Exit: Ctrl+X
+# Put your Steam username and password, then save (Ctrl+O, Ctrl+X)
 
-# 5. Run it!
+# Run
 node index.js
 ```
 
-### First Login
+On first launch it'll ask for your Steam Guard code (email or app). After that it saves a login key so you won't need it again.
 
-1. The app will connect to Steam and ask for your **Steam Guard code** (email or mobile)
-2. Enter the code — this is only needed **once**; a login key is saved for future runs
-3. Your game library loads, DLCs and Family Sharing games are filtered out
-4. Pick your games, choose a mode for each, and idling starts!
+## Keeping it running 24/7
 
-## 🔧 Running 24/7
+Termux will kill the process when you close the app unless you do one of these:
 
-To keep it running when you close Termux:
-
-### Option A: tmux (recommended)
+**tmux (recommended):**
 ```bash
 pkg install tmux -y
 tmux new -s steam
 node index.js
-# Press Ctrl+B then D to detach
-# To reattach later: tmux attach -t steam
+# Ctrl+B then D to detach — it keeps running
+# Come back later: tmux attach -t steam
 ```
 
-### Option B: Termux wake lock
+**Wake lock:**
 ```bash
 termux-wake-lock
 node index.js
 ```
 
-### Option C: Both (most reliable)
-```bash
-termux-wake-lock
-tmux new -s steam
-node index.js
-```
+Or use both for maximum reliability.
 
-## ⌨️ Controls (while idling)
+## Controls
 
-| Key | Action |
-|-----|--------|
-| `r` + Enter | Re-select games |
-| `s` + Enter | Show status (uptime, game count) |
-| `q` + Enter | Quit gracefully |
+While the idler is running, type these and press Enter:
 
-## 🔔 Android Notifications (Optional)
+| Key | What it does |
+|-----|-------------|
+| `r` | Re-pick your games |
+| `s` | Show uptime and status |
+| `q` | Quit and log off |
 
-To get a persistent notification showing your idling status:
+## Notification bar (optional)
+
+If you want a persistent Android notification showing what's being idled:
 
 1. Install the **Termux:API** app from [F-Droid](https://f-droid.org/en/packages/com.termux.api/)
-2. In Termux: `pkg install termux-api`
+2. Run `pkg install termux-api` in Termux
 
-The notification updates every 5 minutes with:
-- Total uptime
-- Per-game hours idled
-- Game mode (Cards / Hours)
+It updates every 5 minutes with per-game hours and mode info. If you skip this step, everything still works — you just won't get the notification.
 
-## 📁 Project Structure
+## Project files
 
 ```
 steam-idler/
-├── index.js          # Main application
+├── index.js          # The whole app
 ├── package.json      # Dependencies
 ├── .env.example      # Credential template
-├── .env              # Your credentials (git-ignored)
-├── config.json       # Saved game selection (auto-generated)
-├── sentry.key        # Login key (auto-generated, git-ignored)
-├── .gitignore
-└── README.md
+├── .env              # Your credentials (gitignored)
+├── config.json       # Your saved game picks (auto-created)
+├── sentry.key        # Saved login key (auto-created, gitignored)
+└── LICENSE
 ```
 
-## 📝 How It Works
+## How it works under the hood
 
-1. **Logs into Steam** using your credentials, sets status to Invisible
-2. **Fetches your game library** via Steam API
-3. **Filters out** DLCs (via `getProductInfo`) and Family Sharing games (via license check)
-4. **Checks your Steam badges** page for remaining card drops
-5. **Interactive selector** lets you pick games and choose Card Farming or Hour Idling
-6. **Sends `gamesPlayed`** to Steam — up to 32 games simultaneously
-7. **Queues extras** and auto-rotates them in when active games reach their hour targets
-8. **Saves everything** to `config.json` — on restart, offers to resume your selection
-9. **Auto-reconnects** if disconnected, with exponential backoff (5s → 60s cap)
+1. Logs into Steam via the `steam-user` library, goes Invisible
+2. Pulls your full game library from the Steam API
+3. Filters out DLCs (checks each app's type via `getProductInfo`) and Family Sharing games (cross-references your licenses)
+4. Scrapes your Steam badges page to find remaining card drops
+5. You pick games and modes through an interactive terminal menu
+6. Calls `gamesPlayed()` with up to 32 app IDs at a time
+7. If you picked more than 32, the rest sit in a queue and rotate in when something finishes
+8. If the connection drops, it retries with exponential backoff (5s, 10s, 20s... up to 60s)
+9. Everything gets saved to `config.json` so you can resume next time
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
-### `EACCES: permission denied, symlink` during `npm install`
+**`EACCES: permission denied, symlink` when running `npm install`**
 
-This happens when running from Android's shared storage (`/sdcard/` or `/storage/emulated/0/`), which doesn't support symlinks. Fix:
-
+Android's shared storage doesn't support symlinks. Either:
 ```bash
 npm install --no-bin-links
 ```
-
-Or move the project to Termux's home directory instead:
+Or move the project to Termux's home directory:
 ```bash
 cp -r /storage/emulated/0/Download/steam-idler ~/steam-idler
 cd ~/steam-idler
 npm install
 ```
 
-### `Cannot find module 'dotenv'` (or any module)
+**`Cannot find module 'dotenv'`**
 
-You need to install dependencies first:
-```bash
-cd ~/steam-idler   # or wherever your project is
-npm install
-```
+You forgot to install dependencies. Run `npm install` in the project folder first.
 
-### `.env.example` not found / hidden files missing
+**Can't find `.env.example`**
 
-Files starting with `.` are hidden on some systems. Just create `.env` manually:
+Dotfiles are hidden by default. Just create `.env` directly:
 ```bash
 nano .env
 ```
-Then type your credentials and save (`Ctrl+O` → Enter → `Ctrl+X`).
+Type your credentials and save.
 
-## ⚠️ Notes
+## Good to know
 
-- Steam allows idling up to **32 games simultaneously** — extras are queued and rotate in
-- Card drops happen faster when idling **fewer games** at once
-- Your Steam profile will show "In non-Steam game" or nothing (Invisible mode)
-- The tool auto-reconnects unless you press `q` to stop manually
-- Steam Guard code is only needed on **first login** — a login key is saved after that
+- Steam caps simultaneous idling at **32 games** — if you pick more, extras queue up and rotate in automatically
+- Fewer games idling at once = faster card drops (Steam's rate limiting)
+- You'll appear offline to friends thanks to Invisible mode
+- The auto-reconnect only stops if you press `q` — otherwise it keeps trying forever
+- Steam Guard is only needed once per device, the login key handles reconnects
 
-## 📄 License
+## License
 
-MIT — free to use, modify, and distribute.
+MIT
