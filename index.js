@@ -65,7 +65,13 @@ function loadLoginKey() {
 }
 
 function saveLoginKey(username, loginKey) {
-  fs.writeFileSync(LOGINKEY_PATH, JSON.stringify({ username, loginKey }, null, 2), 'utf8');
+  try {
+    fs.writeFileSync(LOGINKEY_PATH, JSON.stringify({ username, loginKey }, null, 2), 'utf8');
+    log(chalk.green('✓ Login key saved to: ') + chalk.gray(LOGINKEY_PATH));
+  } catch (err) {
+    log(chalk.red('✗ Failed to save login key: ' + err.message));
+    log(chalk.yellow('  You may need to run from Termux home (~/) instead of shared storage'));
+  }
 }
 
 function formatUptime(ms) {
@@ -847,7 +853,7 @@ async function main() {
     creds.password = prompted.password;
   }
 
-  // Set up Steam Guard handler (only needed if login key is invalid/missing)
+  // Set up Steam Guard handler
   client.on('steamGuard', async (domain, callback) => {
     const code = await promptSteamGuard(domain);
     callback(code);
@@ -864,8 +870,40 @@ async function main() {
     client.setPersona(SteamUser.EPersonaState.Invisible);
     log(chalk.green('✓ Logged in as ') + chalk.bold.white(client.steamID.getSteamID64()) + chalk.gray(' (Invisible)'));
   } catch (err) {
-    log(chalk.red('✗ Login failed: ') + err.message);
-    process.exit(1);
+    // If login key failed, clear it and retry with password
+    if (creds.loginKey) {
+      log(chalk.yellow('⚠ Login key expired or invalid, clearing it...'));
+      try { fs.unlinkSync(LOGINKEY_PATH); } catch (e) { /* ignore */ }
+      creds.loginKey = null;
+
+      // Need fresh credentials if we don't have a password
+      if (!creds.password) {
+        const prompted = await promptCredentials();
+        creds.username = prompted.username;
+        creds.password = prompted.password;
+      }
+
+      // Retry with password
+      try {
+        client = new SteamUser({ enablePicsCache: true });
+        client.on('steamGuard', async (domain, callback) => {
+          const code = await promptSteamGuard(domain);
+          callback(code);
+        });
+        setupLoginKeyListener(creds);
+
+        await doLogin(creds);
+        isLoggedIn = true;
+        client.setPersona(SteamUser.EPersonaState.Invisible);
+        log(chalk.green('✓ Logged in as ') + chalk.bold.white(client.steamID.getSteamID64()) + chalk.gray(' (Invisible)'));
+      } catch (retryErr) {
+        log(chalk.red('✗ Login failed: ') + retryErr.message);
+        process.exit(1);
+      }
+    } else {
+      log(chalk.red('✗ Login failed: ') + err.message);
+      process.exit(1);
+    }
   }
 
   // Step 2: Setup auto-reconnect (always on unless manually stopped)
