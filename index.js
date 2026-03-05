@@ -349,16 +349,38 @@ async function selectGames() {
 
   console.log('');
   console.log(chalk.bold.hex('#1b9feb')('─── Select Games to Idle ───'));
-  console.log(chalk.gray('Select as many as you want. Use arrow keys, space to select, enter to confirm.'));
-  console.log(chalk.gray(`Steam idles up to ${MAX_GAMES} at a time — extras will queue and rotate in automatically.`));
+  console.log(chalk.gray(`Steam idles up to ${MAX_GAMES} at a time — extras queue and rotate in automatically.`));
   console.log('');
+
+  // Search filter — type to narrow down, or leave blank for all
+  const { search } = await inquirer.prompt([
+    {
+      type: 'input',
+      name: 'search',
+      message: chalk.cyan('Search games (leave blank to show all):'),
+    },
+  ]);
+
+  let filteredApps = ownedApps;
+  if (search.trim()) {
+    const term = search.trim().toLowerCase();
+    filteredApps = ownedApps.filter(app => app.name.toLowerCase().includes(term));
+    if (filteredApps.length === 0) {
+      log(chalk.yellow(`No games matching "${search.trim()}". Showing all games instead.`));
+      filteredApps = ownedApps;
+    } else {
+      log(chalk.green(`Found ${filteredApps.length} games matching "${search.trim()}"`));
+    }
+  }
+
+  console.log(chalk.gray('Use arrow keys, space to select, enter to confirm.'));
 
   const { selectedApps } = await inquirer.prompt([
     {
       type: 'checkbox',
       name: 'selectedApps',
-      message: chalk.cyan('Choose games from your library:'),
-      choices: ownedApps.map(app => {
+      message: chalk.cyan('Choose games:'),
+      choices: filteredApps.map(app => {
         const drops = cardDrops[app.appid];
         const dropTag = drops
           ? chalk.green(` 🃏 ${drops} card drop${drops > 1 ? 's' : ''}`)
@@ -547,6 +569,82 @@ function checkHourTargets() {
   }
 }
 
+// Re-check badge page and remove card-farming games that have 0 drops left
+async function checkCardDrops() {
+  if (!webCookies) return;
+
+  const cardGames = activeGames.filter(g => g.mode === 'cards');
+  const queuedCardGames = allGames.filter(g => g.mode === 'cards' && !activeGames.includes(g));
+  if (cardGames.length === 0 && queuedCardGames.length === 0) return;
+
+  log(chalk.gray('Re-checking card drops...'));
+
+  try {
+    const freshDrops = await fetchBadges();
+    cardDrops = freshDrops;
+    let changed = false;
+    const finished = [];
+
+    // Check active games
+    activeGames = activeGames.filter(game => {
+      if (game.mode === 'cards') {
+        const remaining = freshDrops[game.appid] || 0;
+        if (remaining === 0) {
+          log(chalk.green(`✓ ${game.name} — all card drops collected! Removing.`));
+          finished.push(game);
+          changed = true;
+          return false;
+        }
+      }
+      return true;
+    });
+
+    // Remove finished from full queue too
+    if (finished.length > 0) {
+      const finishedIds = new Set(finished.map(g => g.appid));
+      allGames = allGames.filter(g => !finishedIds.has(g.appid));
+    }
+
+    // Also remove queued card games with 0 drops
+    allGames = allGames.filter(game => {
+      if (game.mode === 'cards' && !activeGames.includes(game)) {
+        const remaining = freshDrops[game.appid] || 0;
+        if (remaining === 0) {
+          log(chalk.green(`✓ ${game.name} — no drops left, removed from queue.`));
+          changed = true;
+          return false;
+        }
+      }
+      return true;
+    });
+
+    if (changed) {
+      // Rotate queued games into freed slots
+      const activeIds = new Set(activeGames.map(g => g.appid));
+      const queued = allGames.filter(g => !activeIds.has(g.appid));
+      const slotsAvailable = MAX_GAMES - activeGames.length;
+
+      if (slotsAvailable > 0 && queued.length > 0) {
+        const rotateIn = queued.slice(0, slotsAvailable);
+        activeGames.push(...rotateIn);
+        for (const game of rotateIn) {
+          log(chalk.cyan(`↻ Rotated in: ${game.name}`));
+        }
+      }
+
+      if (activeGames.length > 0) {
+        client.gamesPlayed(activeGames.map(g => g.appid));
+        saveConfig(allGames);
+      } else {
+        client.gamesPlayed([]);
+        log(chalk.yellow('All card games finished and no more queued! Press r to select new games.'));
+      }
+    }
+  } catch (err) {
+    log(chalk.gray('Card drop re-check failed: ' + err.message));
+  }
+}
+
 // ─── Status Display ──────────────────────────────────────────────────────────
 
 function showStatus() {
@@ -706,7 +804,7 @@ function setupInputHandler(credentials) {
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const VERSION = '1.5.0';
+  const VERSION = '1.6.0';
   console.clear();
   console.log('');
   console.log(chalk.bold.hex('#1b9feb')('╔══════════════════════════════════════════════════╗'));
@@ -827,14 +925,21 @@ async function main() {
   // Step 6: Setup keyboard input
   setupInputHandler(creds);
 
-  // Step 7: Periodic status + hour target checks
+  // Step 7: Periodic status + hour target checks (every 5 min)
   setInterval(() => {
     if (isLoggedIn && activeGames.length > 0) {
       showStatus();
       checkHourTargets();
       updateNotification();
     }
-  }, 5 * 60 * 1000); // every 5 minutes
+  }, 5 * 60 * 1000);
+
+  // Step 8: Re-check card drops every 30 min and auto-remove finished games
+  setInterval(() => {
+    if (isLoggedIn && activeGames.some(g => g.mode === 'cards')) {
+      checkCardDrops();
+    }
+  }, 30 * 60 * 1000);
 }
 
 // ─── Run ─────────────────────────────────────────────────────────────────────
